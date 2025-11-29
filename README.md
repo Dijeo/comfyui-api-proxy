@@ -45,16 +45,37 @@ You can configure the proxy using environment variables. Create a `.env` file or
 | :--- | :--- | :--- |
 | `COMFY_HOST` | Host where ComfyUI is running | `127.0.0.1` |
 | `COMFY_PORT` | Port where ComfyUI is running | `7337` |
-| `COMFY_API_KEY` | Secret key for authentication | `secret-key` |
+| `COMFY_API_KEY` | Secret key for authentication | Randomly generated if not set |
 | `PORT` | Port for this proxy server | `8189` |
+
+## Docker Deployment
+
+You can build and run the proxy as a Docker container.
+
+1.  **Build the image**:
+    ```bash
+    docker build -t comfyui-proxy .
+    ```
+
+2.  **Run the container**:
+    ```bash
+    # Replace 192.168.1.100 with your host's IP address (where ComfyUI is running)
+    docker run -p 8189:8189 \
+      -e COMFY_HOST=192.168.1.100 \
+      -e COMFY_PORT=8188 \
+      -e COMFY_API_KEY=my-secret-key \
+      comfyui-proxy
+    ```
+    *Note: Inside Docker, `127.0.0.1` refers to the container itself. Use your host's LAN IP to reach ComfyUI running on the host.*
 
 ## Usage
 
-1.  **Start the server**:
+1.  **Start the server (Local Python)**:
     ```bash
     python main.py
     ```
     The server will start on `http://0.0.0.0:8189`.
+    **Check the console output for the generated API Key if you didn't set one.**
 
 2.  **Important Note on Workflows**:
     > **⚠️ CRITICAL**: Before using a workflow with this API, **you MUST ensure it works natively in ComfyUI first.**

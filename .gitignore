@@ -1,7 +1,8 @@
-venv/
+docker-compose.yml
 __pycache__/
 *.pyc
 .env
 .vscode/
 generated_image.png
 *.log
+venv/

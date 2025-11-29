@@ -15,11 +15,24 @@ from comfy_client import ComfyClient
 
 app = FastAPI()
 
+import secrets
+
 COMFY_HOST = os.getenv("COMFY_HOST", "127.0.0.1")
 COMFY_PORT = os.getenv("COMFY_PORT", "7337")
 COMFY_BASE_URL = os.getenv("COMFY_BASE_URL", f"http://{COMFY_HOST}:{COMFY_PORT}")
 COMFY_WS_URL = os.getenv("COMFY_WS_URL", f"ws://{COMFY_HOST}:{COMFY_PORT}")
-API_KEY = os.getenv("COMFY_API_KEY", "secret-key") # Default key for dev
+
+# Generate a random key if not set
+if "COMFY_API_KEY" not in os.environ:
+    generated_key = secrets.token_urlsafe(32)
+    print(f"\n{'='*60}")
+    print(f"WARNING: COMFY_API_KEY not set. Generated random key:")
+    print(f"Key: {generated_key}")
+    print(f"{'='*60}\n")
+    API_KEY = generated_key
+else:
+    API_KEY = os.environ["COMFY_API_KEY"]
+
 API_KEY_NAME = "X-API-Key"
 
 api_key_header = APIKeyHeader(name=API_KEY_NAME, auto_error=False)
