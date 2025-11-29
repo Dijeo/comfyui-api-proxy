@@ -1,0 +1,69 @@
+{
+  "10": {
+    "inputs": { "unet_name": "flux1-dev-Q4_0.gguf" },
+    "class_type": "UnetLoaderGGUF",
+    "_meta": { "title": "FLUX Model" }
+  },
+  "11": {
+    "inputs": { "clip_name1": "t5xxl_fp8_e4m3fn.safetensors", "clip_name2": "clip_l.safetensors", "type": "flux" },
+    "class_type": "DualCLIPLoader",
+    "_meta": { "title": "CLIP" }
+  },
+  "12": {
+    "inputs": { "vae_name": "ae.safetensors" },
+    "class_type": "VAELoader",
+    "_meta": { "title": "VAE" }
+  },
+  "100": {
+    "inputs": {
+      "image": "placeholder.png", 
+      "upload": "image"
+    },
+    "class_type": "LoadImage",
+    "_meta": { "title": "GİRİŞ GÖRSELİ (Sketch)" }
+  },
+  "80": {
+    "inputs": {
+      "pixels": [ "100", 0 ],
+      "vae": [ "12", 0 ]
+    },
+    "class_type": "VAEEncode",
+    "_meta": { "title": "Görseli Latent'e Çevir" }
+  },
+  "70": {
+    "inputs": { "text": "Render Prompt Placeholder", "clip": [ "11", 0 ] },
+    "class_type": "CLIPTextEncode",
+    "_meta": { "title": "Render Prompt" }
+  },
+  "71": {
+    "inputs": { "text": "blur, low quality, sketch, drawing", "clip": [ "11", 0 ] },
+    "class_type": "CLIPTextEncode",
+    "_meta": { "title": "Negative Prompt" }
+  },
+  "90": {
+    "inputs": {
+      "seed": 12345,
+      "steps": 25,
+      "cfg": 1.0,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 0.60, 
+      "model": [ "10", 0 ],
+      "positive": [ "70", 0 ],
+      "negative": [ "71", 0 ],
+      "latent_image": [ "80", 0 ]
+    },
+    "class_type": "KSampler",
+    "_meta": { "title": "Sampler (Img2Img)" }
+  },
+  "95": {
+    "inputs": { "samples": [ "90", 0 ], "vae": [ "12", 0 ] },
+    "class_type": "VAEDecode",
+    "_meta": { "title": "Decode" }
+  },
+  "99": {
+    "inputs": { "filename_prefix": "Final_Render", "images": [ "95", 0 ] },
+    "class_type": "SaveImage",
+    "_meta": { "title": "Kaydet" }
+  }
+}
