@@ -39,7 +39,13 @@ A lightweight Python FastAPI proxy that exposes a local [ComfyUI](https://github
 
 ## Configuration
 
-You can configure the proxy using environment variables. Create a `.env` file or set them in your shell:
+You can configure the proxy using environment variables. You can either set them in your shell or create a `.env` file in the root directory:
+
+```env
+COMFY_HOST=127.0.0.1
+COMFY_PORT=7337
+COMFY_API_KEY=your-secret-key-here
+```
 
 | Variable | Description | Default |
 | :--- | :--- | :--- |

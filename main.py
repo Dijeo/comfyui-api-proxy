@@ -12,6 +12,9 @@ import json
 from typing import Optional
 from utils import load_workflow_template, update_workflow_inputs
 from comfy_client import ComfyClient
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = FastAPI()
 
