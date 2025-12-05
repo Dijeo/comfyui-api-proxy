@@ -8,12 +8,15 @@ A lightweight Python FastAPI proxy that exposes a local [ComfyUI](https://github
 - **Authentication**: Secure your endpoint with API Key authentication (`X-API-Key`).
 - **Synchronous Execution**: Queue a workflow and wait for the result in a single HTTP request.
 - **Dynamic Output**: Automatically detects and returns the generated image, video, or text.
+- **Progress Tracking**: Stream real-time progress updates via Server-Sent Events (SSE).
+- **Graceful Shutdown**: Automatically interrupts running workflows and frees VRAM when the proxy stops.
 - **Image Upload**: Helper endpoint to upload images for Image-to-Image or Image-to-Video workflows.
 
 ## Prerequisites
 
 - Python 3.10+
 - A running instance of ComfyUI (default port 7337, configurable)
+- **Important**: If running via Docker, ComfyUI must be started with `--listen` to accept connections from the container.
 
 ## Installation
 
@@ -65,14 +68,17 @@ You can build and run the proxy as a Docker container.
 
 2.  **Run the container**:
     ```bash
-    # Replace 192.168.1.100 with your host's IP address (where ComfyUI is running)
+    # For Windows/Mac (Docker Desktop):
     docker run -p 8189:8189 \
-      -e COMFY_HOST=192.168.1.100 \
-      -e COMFY_PORT=8188 \
+      -e COMFY_HOST=host.docker.internal \
+      -e COMFY_PORT=7337 \
       -e COMFY_API_KEY=my-secret-key \
       comfyui-proxy
+
+    # For Linux:
+    # Use your host's LAN IP (e.g., 192.168.1.100) instead of host.docker.internal
     ```
-    *Note: Inside Docker, `127.0.0.1` refers to the container itself. Use your host's LAN IP to reach ComfyUI running on the host.*
+    *Note: Ensure your local ComfyUI instance is running with `--listen` (e.g., `python main.py --listen`) so it can accept connections from the Docker container.*
 
 ## Usage
 
@@ -91,7 +97,7 @@ You can build and run the proxy as a Docker container.
     > 4. Save the workflow as API JSON.
     > 5. Use this JSON as the payload for the API.
 
-3.  **Run a Workflow**:
+3.  **Run a Workflow (Synchronous)**:
     Send a POST request to `/run_workflow` with your workflow JSON.
 
     ```bash
@@ -102,7 +108,21 @@ You can build and run the proxy as a Docker container.
          --output result.png
     ```
 
-4.  **Upload an Image** (for Img2Img/Img2Vid):
+4.  **Run a Workflow (Streaming Progress)**:
+    Send a POST request to `/run_workflow_stream` to get real-time updates via SSE.
+
+    ```bash
+    curl -N -X POST "http://localhost:8189/run_workflow_stream" \
+         -H "X-API-Key: secret-key" \
+         -H "Content-Type: application/json" \
+         -d @your_workflow_api.json
+    ```
+    **Streamed Events:**
+    - `event: progress` -> `data: {"type": "progress", "data": {"value": 1, "max": 10}}`
+    - `event: executing` -> `data: {"type": "executing", "data": {"node": "123"}}`
+    - `event: result` -> `data: {"type": "result", "data": {"filename": "...", "subfolder": "...", "type": "output"}}`
+
+5.  **Upload an Image** (for Img2Img/Img2Vid):
     ```bash
     curl -X POST "http://localhost:8189/upload" \
          -H "X-API-Key: secret-key" \
@@ -112,10 +132,25 @@ You can build and run the proxy as a Docker container.
 
 ## API Endpoints
 
-- `POST /run_workflow`: Execute a workflow and get the result.
+- `POST /run_workflow`: Execute a workflow and get the result (Image/Video/Text).
+- `POST /run_workflow_stream`: Execute a workflow and stream progress events (SSE).
 - `POST /upload`: Upload an image file.
 - `GET /ws`: WebSocket proxy (requires `token` query param).
 - `GET /*`: Proxy all other ComfyUI static assets and endpoints.
+
+## Troubleshooting
+
+### "No image/video output found"
+This usually means the workflow failed to execute in ComfyUI.
+1.  **Check the API Logs**: The proxy now logs the exact error from ComfyUI. Look for `ComfyUI Error`.
+2.  **Verify Locally**: Run the exact same workflow JSON in ComfyUI manually. If it fails there (e.g., missing nodes, model load errors), it will fail in the proxy.
+3.  **Custom Nodes**: Errors like `OSError` or `ModuleNotFound` in custom nodes (e.g., `pig.py`, `ComfyUI-GGUF`) are common. Ensure your ComfyUI environment is correctly set up and all dependencies are installed.
+
+### Connection Refused (Docker)
+If the Docker container cannot connect to ComfyUI:
+1.  Ensure ComfyUI is running with `--listen` (e.g., `python main.py --listen`).
+2.  Use `COMFY_HOST=host.docker.internal` (Windows/Mac) or your LAN IP (Linux).
+3.  Check if a firewall is blocking the connection.
 
 ## Remote Access & NAT Forwarding
 

@@ -32,23 +32,21 @@ class ComfyClient:
         resp.raise_for_status()
         return resp.content
 
-    async def execute_workflow(self, workflow: Dict[str, Any]) -> tuple[bytes, str]:
+    async def execute_workflow_stream(self, workflow: Dict[str, Any]):
         """
-        Executes a workflow synchronously:
-        1. Connects to WS
-        2. Queues prompt
-        3. Waits for completion
-        4. Downloads and returns the first output image
+        Yields workflow execution events: 'progress', 'executing', and finally 'result'.
         """
         async with websockets.connect(f"{self.ws_url}/ws?clientId={self.client_id}") as ws:
             prompt_id = await self.queue_prompt(workflow)
-            print(f"Queued prompt: {prompt_id}")
+            # print(f"Queued prompt: {prompt_id}")
 
             while True:
                 out = await ws.recv()
                 if isinstance(out, str):
                     message = json.loads(out)
-                    # print(f"WS Message: {message['type']}")
+                    
+                    if message['type'] in ['progress', 'executing', 'execution_start', 'execution_cached']:
+                        yield message
                     
                     if message['type'] == 'executing':
                         data = message['data']
@@ -61,19 +59,33 @@ class ComfyClient:
             outputs = history.get("outputs", {})
             
             # Find the first image output
-            # outputs is a dict where key is node_id
             for node_id, node_output in outputs.items():
                 if "images" in node_output:
                     image_info = node_output["images"][0]
-                    filename = image_info["filename"]
-                    subfolder = image_info["subfolder"]
-                    folder_type = image_info["type"]
-                    
-                    print(f"Downloading image: {filename}")
-                    image_data = await self.get_image(filename, subfolder, folder_type)
-                    return image_data, filename
+                    yield {
+                        "type": "result",
+                        "data": image_info
+                    }
+                    return
             
             raise Exception("No image output found in workflow history")
+
+    async def execute_workflow(self, workflow: Dict[str, Any]) -> tuple[bytes, str]:
+        """
+        Executes a workflow synchronously and returns the image data.
+        """
+        async for event in self.execute_workflow_stream(workflow):
+            if event['type'] == 'result':
+                image_info = event['data']
+                filename = image_info["filename"]
+                subfolder = image_info["subfolder"]
+                folder_type = image_info["type"]
+                
+                print(f"Downloading image: {filename}")
+                image_data = await self.get_image(filename, subfolder, folder_type)
+                return image_data, filename
+        
+        raise Exception("Workflow finished but no result returned")
 
     async def upload_image(self, file_data: bytes, filename: str, overwrite: bool = False) -> Dict[str, Any]:
         """
@@ -85,3 +97,25 @@ class ComfyClient:
         resp = await self.http_client.post("/upload/image", files=files, data=data)
         resp.raise_for_status()
         return resp.json()
+        return resp.json()
+
+    async def interrupt(self, timeout: float = 1.0):
+        """Interrupts the current execution."""
+        try:
+            await self.http_client.post("/interrupt", timeout=timeout)
+        except Exception as e:
+            print(f"Failed to interrupt: {e}")
+
+    async def clear_queue(self, timeout: float = 1.0):
+        """Clears the execution queue."""
+        try:
+            await self.http_client.post("/queue", json={"clear": True}, timeout=timeout)
+        except Exception as e:
+            print(f"Failed to clear queue: {e}")
+
+    async def free_memory(self, timeout: float = 1.0):
+        """Attempts to free VRAM/RAM (unload models)."""
+        try:
+            await self.http_client.post("/free", timeout=timeout)
+        except Exception as e:
+            print(f"Failed to free memory: {e}")
